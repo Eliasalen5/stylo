@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { hasConflict, isBookableSlot } from "@/lib/availability";
+import { notifyAppointmentEvent } from "@/lib/appointment-emails";
 import { Prisma } from "@/generated/prisma/client";
 
 export type BookingErrorKind =
@@ -155,6 +156,13 @@ export async function createBooking(
         select: { id: true },
       });
       id = created.id;
+    });
+
+    // Best-effort: el email de confirmación nunca debe hacer fallar la reserva.
+    await notifyAppointmentEvent({
+      businessId,
+      appointmentId: id,
+      kind: "CONFIRMED",
     });
 
     return { id };

@@ -7,6 +7,8 @@ import { requireCurrentBusiness } from "@/lib/current-business";
 import { createBooking, runBookingTransaction, BookingConflict } from "@/lib/booking";
 import { isBookableSlot } from "@/lib/availability";
 import { parseStartsAt } from "@/lib/datetime";
+import { notifyAppointmentEvent } from "@/lib/appointment-emails";
+import { deletePendingRemindersForAppointment } from "@/lib/reminders";
 
 export type AppointmentState = {
   error?: string;
@@ -105,6 +107,19 @@ export async function updateAppointmentStatus(
     data: { status },
   });
 
+  if (status === "CANCELLED") {
+    await Promise.all([
+      deletePendingRemindersForAppointment(appointmentId),
+      notifyAppointmentEvent({
+        businessId: business.id,
+        appointmentId,
+        kind: "CANCELLED",
+      }),
+    ]);
+  } else if (status === "COMPLETED" || status === "NO_SHOW") {
+    await deletePendingRemindersForAppointment(appointmentId);
+  }
+
   revalidatePath("/dashboard/appointments");
   return {};
 }
@@ -182,6 +197,14 @@ export async function rescheduleAppointment(
     console.error("Error al reprogramar turno", error);
     return { error: "No se pudo reprogramar el turno. Intentalo de nuevo." };
   }
+
+  await deletePendingRemindersForAppointment(appointmentId);
+
+  await notifyAppointmentEvent({
+    businessId: business.id,
+    appointmentId,
+    kind: "RESCHEDULED",
+  });
 
   revalidatePath("/dashboard/appointments");
   return {};
