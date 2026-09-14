@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/services", label: "Servicios" },
   { href: "/dashboard/professionals", label: "Profesionales" },
   { href: "/dashboard/hours", label: "Horarios" },
+  { href: "/dashboard/customers", label: "Clientes" },
 ];
 
 export function Sidebar() {
