@@ -1,6 +1,6 @@
 // Stylo — Esquema de datos (multi-tenant)
 // Convenciones:
-//  - Todos los montos se almacenan en centavos (priceCents / priceCents).
+//  - Todos los montos se almacenan en pesos enteros (price). Ej: 3000 = $3.000.
 //  - Todas las fechas se guardan como UTC (DateTime). La zona horaria del negocio
 //    se usa solo para presentación y cálculo de disponibilidad.
 //  - Toda entidad de negocio se relaciona con Business (businessId). El tenant
@@ -145,7 +145,7 @@ model Service {
   name            String
   description     String?
   durationMinutes Int
-  priceCents      Int
+  price           Int
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -194,6 +194,9 @@ model Customer {
   reminders    Reminder[]
 
   @@unique([businessId, userId])
+  // Un email no puede repetirse como cliente dentro del mismo negocio.
+  // Los NULLs (clientes sin email) no colisionan en PostgreSQL.
+  @@unique([businessId, email])
   @@index([businessId])
   @@index([userId])
 }
@@ -207,8 +210,8 @@ model Appointment {
   startsAt       DateTime
   endsAt         DateTime
   status         AppointmentStatus @default(PENDING)
-  // Precio del servicio al momento de la reserva (snapshot, en centavos)
-  priceCents     Int
+  // Precio del servicio al momento de la reserva (snapshot, en pesos)
+  price           Int
   notes          String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -220,7 +223,9 @@ model Appointment {
   reminders    Reminder[]
 
   @@index([businessId, startsAt])
-  @@index([professionalId, startsAt])
+  // Defensa en profundidad contra doble reserva: un profesional no puede tener
+  // dos turnos que empiecen exactamente en el mismo instante.
+  @@unique([professionalId, startsAt])
   @@index([customerId, startsAt])
   @@index([status, startsAt])
 }
@@ -230,7 +235,7 @@ model Plan {
   id          String   @id @default(cuid())
   name        String
   description String?
-  priceCents  Int
+  price       Int
   // Límites del plan (ej: {"maxProfessionals": 5, "maxAppointmentsPerDay": 50})
   limits      Json?
   isActive    Boolean  @default(true)
