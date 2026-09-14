@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireCurrentBusiness } from "@/lib/current-business";
-import { AppointmentCard } from "@/components/appointments/appointment-card";
+import { localToUTC, toTimezoneComponents, toMinutes } from "@/lib/datetime";
+import { WEEKDAY_TO_INDEX } from "@/lib/availability";
+import type { WeekDay } from "@/generated/prisma/client";
+import { AppointmentsBoard } from "@/components/appointments/appointments-board";
+
+function formatHH(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
 
 export default async function AppointmentsPage({
   searchParams,
@@ -15,15 +22,16 @@ export default async function AppointmentsPage({
   const professionalParam = typeof params.professional === "string" ? params.professional : null;
   const statusParam = typeof params.status === "string" ? params.status : null;
 
-  const today = new Date();
-  const todayStr = dateParam ?? today.toISOString().split("T")[0];
-  const [year, month, day] = todayStr.split("-").map(Number);
-  const dayStart = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-  const dayEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59));
+  // El día por defecto es el día local del negocio (no el UTC del servidor).
+  const selectedDate = dateParam ?? toTimezoneComponents(new Date(), business.timezone).dateStr;
+
+  // La ventana del día se calcula en la timezone del negocio.
+  const dayStartUTC = localToUTC(selectedDate, "00:00", business.timezone);
+  const dayEndUTC = localToUTC(selectedDate, "24:00", business.timezone);
 
   const where: import("@/generated/prisma/client").Prisma.AppointmentWhereInput = {
     businessId: business.id,
-    startsAt: { gte: dayStart, lte: dayEnd },
+    startsAt: { gte: dayStartUTC, lte: dayEndUTC },
   };
 
   if (professionalParam) {
@@ -34,7 +42,12 @@ export default async function AppointmentsPage({
     where.status = statusParam as "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
   }
 
-  const [appointments, professionals] = await Promise.all([
+  // Día de la semana local de la fecha seleccionada (para el marco horario).
+  const [y, m, d] = selectedDate.split("-").map(Number);
+  const jsDay = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
+  const weekday = Object.entries(WEEKDAY_TO_INDEX).find(([, i]) => i === jsDay)?.[0];
+
+  const [appointments, professionals, businessHours] = await Promise.all([
     db.appointment.findMany({
       where,
       include: {
@@ -48,7 +61,44 @@ export default async function AppointmentsPage({
       where: { businessId: business.id, isActive: true },
       orderBy: { createdAt: "asc" },
     }),
+    db.businessHours.findMany({
+      where: {
+        businessId: business.id,
+        professionalId: null,
+        dayOfWeek: weekday as WeekDay | undefined,
+        isActive: true,
+      },
+    }),
   ]);
+
+  // Marco de la agenda: horas de atención del negocio, ampliado para incluir
+  // turnos que caen fuera del horario (ej. horas propias de un profesional).
+  const planHours = businessHours.length > 0 ? businessHours : null;
+  let openMin = planHours
+    ? Math.min(...planHours.map((h) => toMinutes(h.startTime)))
+    : 7 * 60;
+  let closeMin = planHours
+    ? Math.max(...planHours.map((h) => toMinutes(h.endTime)))
+    : 22 * 60;
+
+  for (const appt of appointments) {
+    const start = toMinutes(
+      toTimezoneComponents(appt.startsAt, business.timezone).timeStr
+    );
+    const end = toMinutes(
+      toTimezoneComponents(appt.endsAt, business.timezone).timeStr
+    );
+    if (end > start) {
+      openMin = Math.min(openMin, start);
+      closeMin = Math.max(closeMin, end);
+    }
+  }
+
+  openMin = Math.floor(openMin / 60) * 60;
+  closeMin = Math.ceil(closeMin / 60) * 60;
+  if (closeMin <= openMin) closeMin = openMin + 60;
+
+  const hasContent = appointments.length > 0 || professionals.length > 0;
 
   return (
     <div className="w-full max-w-4xl">
@@ -71,7 +121,7 @@ export default async function AppointmentsPage({
             id="date"
             name="date"
             type="date"
-            defaultValue={todayStr}
+            defaultValue={selectedDate}
             className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
           />
         </fieldset>
@@ -119,20 +169,18 @@ export default async function AppointmentsPage({
         </div>
       </form>
 
-      {appointments.length === 0 ? (
+      {!hasContent ? (
         <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
           No hay turnos para esta fecha.
         </p>
       ) : (
-        <div className="mt-4 space-y-3">
-          {appointments.map((appt) => (
-            <AppointmentCard
-              key={appt.id}
-              appointment={appt}
-              timezone={business.timezone}
-            />
-          ))}
-        </div>
+        <AppointmentsBoard
+          appointments={appointments}
+          professionals={professionals.map((p) => ({ id: p.id, name: p.name }))}
+          timezone={business.timezone}
+          openTime={formatHH(openMin)}
+          closeTime={formatHH(closeMin)}
+        />
       )}
     </div>
   );

@@ -17,7 +17,7 @@ export type TimeSlot = {
 
 const SLOT_GRANULARITY = 30; // minutos
 
-const WEEKDAY_TO_INDEX: Record<WeekDay, number> = {
+export const WEEKDAY_TO_INDEX: Record<WeekDay, number> = {
   MONDAY: 1,
   TUESDAY: 2,
   WEDNESDAY: 3,
