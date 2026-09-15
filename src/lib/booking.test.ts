@@ -7,7 +7,11 @@ const mockDb = vi.hoisted(() => ({
   professional: { findFirst: vi.fn() },
   customer: { findFirst: vi.fn() },
   businessHours: { findMany: vi.fn() },
-  appointment: { count: vi.fn() },
+  appointment: {
+    count: vi.fn(),
+    create: vi.fn(),
+    findFirst: vi.fn(),
+  },
   $transaction: vi.fn(),
 }));
 
@@ -54,6 +58,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockDefaultHours();
   mockOkEntities();
+  // La notificación de confirmación (email) es best-effort; sin email no hace nada.
+  mockDb.appointment.findFirst.mockResolvedValue({ customer: { email: null } });
 });
 
 describe("createBooking", () => {
