@@ -6,7 +6,7 @@ import {
 export const maxDuration = 60;
 
 /**
- * Cron de recordatorios (Vercel Cron, cada hora).
+ * Cron de recordatorios (Vercel Cron, diario a las 12:00 UTC).
  *
  * 1. Programa Reminders PENDING para turnos confirmados dentro de 24 hs.
  * 2. Envía los Reminders vencidos (idempotente).
