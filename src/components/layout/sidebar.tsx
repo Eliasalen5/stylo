@@ -10,9 +10,10 @@ const NAV_ITEMS = [
   { href: "/dashboard/professionals", label: "Profesionales" },
   { href: "/dashboard/hours", label: "Horarios" },
   { href: "/dashboard/customers", label: "Clientes" },
+  { href: "/dashboard/billing", label: "Suscripción" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isPlatformAdmin = false }: { isPlatformAdmin?: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -38,6 +39,21 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {isPlatformAdmin && (
+          <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+            <Link
+              href="/admin/plans"
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                pathname.startsWith("/admin")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              Panel admin
+            </Link>
+          </div>
+        )}
       </nav>
     </aside>
   );

@@ -57,6 +57,15 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+// Frecuencia de cobro del plan (se traduce al plan de recurrencia de
+// Mercado Pago cuando el plan se publica).
+enum SubscriptionInterval {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
 model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
@@ -64,8 +73,11 @@ model User {
   firstName String?
   lastName  String?
   phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Acceso al panel de plataforma (admin global). Se deriva de la lista
+  // PLATFORM_ADMIN_EMAILS en el entorno; nunca de datos del cliente.
+  isPlatformAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   memberships          BusinessMember[]
   customerProfiles     Customer[]
@@ -239,6 +251,11 @@ model Plan {
   // Límites del plan (ej: {"maxProfessionals": 5, "maxAppointmentsPerDay": 50})
   limits      Json?
   isActive    Boolean  @default(true)
+  // Frecuencia de cobro recurrente
+  interval           SubscriptionInterval @default(MONTH)
+  intervalCount      Int                   @default(1)
+  // Preapproval Plan creado en Mercado Pago para este plan
+  mercadoPagoPlanId  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -251,17 +268,38 @@ model Subscription {
   planId                    String
   status                    SubscriptionStatus @default(PENDING)
   mercadoPagoSubscriptionId String?
-  currentPeriodStart        DateTime?
-  currentPeriodEnd          DateTime?
-  canceledAt                DateTime?
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
+  // Estado crudo reportado por Mercado Pago (revisión/diagnóstico)
+  mpStatus                 String?
+  currentPeriodStart       DateTime?
+  currentPeriodEnd         DateTime?
+  canceledAt               DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   plan     Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  events   SubscriptionEvent[]
 
   @@index([businessId])
   @@index([planId])
+  @@index([mercadoPagoSubscriptionId])
+}
+
+// Registro de eventos de webhook de Mercado Pago. Su objetivo principal es
+// la idempotencia: cada evento (mpEventId) se procesa exactamente una vez,
+// aunque Mercado Pago reintente el delivery.
+model SubscriptionEvent {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  eventType      String
+  mpEventId      String   @unique
+  payload        Json
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([eventType])
 }
 
 model Reminder {

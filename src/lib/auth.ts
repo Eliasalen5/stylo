@@ -3,6 +3,20 @@ import { db } from "@/lib/db";
 import type { User } from "@/generated/prisma/client";
 
 /**
+ * Emails con acceso al panel de plataforma (ver PLATFORM_ADMIN_EMAILS en .env).
+ * La asignación del rol se deriva SIEMPRE del entorno del servidor, nunca de
+ * datos enviados por el cliente.
+ */
+function getPlatformAdminEmails(): Set<string> {
+  return new Set(
+    (process.env.PLATFORM_ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+/**
  * Devuelve el User de la aplicación correspondiente a la sesión actual de
  * Clerk, o null si no hay sesión.
  *
@@ -19,21 +33,25 @@ export async function getCurrentUser(): Promise<User | null> {
 
   const clerk = await clerkClient();
   const profile = await clerk.users.getUser(userId);
+  const email = profile.primaryEmailAddress?.emailAddress ?? "";
+  const platformAdmins = getPlatformAdminEmails();
 
   return db.user.upsert({
     where: { clerkId: userId },
     create: {
       clerkId: userId,
-      email: profile.primaryEmailAddress?.emailAddress ?? "",
+      email,
       firstName: profile.firstName,
       lastName: profile.lastName,
       phone: profile.primaryPhoneNumber?.phoneNumber,
+      isPlatformAdmin: platformAdmins.has(email.toLowerCase()),
     },
     update: {
-      email: profile.primaryEmailAddress?.emailAddress ?? "",
+      email,
       firstName: profile.firstName,
       lastName: profile.lastName,
       phone: profile.primaryPhoneNumber?.phoneNumber,
+      isPlatformAdmin: platformAdmins.has(email.toLowerCase()),
     },
   });
 }

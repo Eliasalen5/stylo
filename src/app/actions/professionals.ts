@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { requireCurrentOwner } from "@/lib/current-business";
+import { enforceMaxProfessionals } from "@/lib/plan-limits";
 
 export type ProfessionalState = {
   error?: string;
@@ -42,6 +43,12 @@ export async function createProfessional(
   }
 
   try {
+    const professionalCount = await db.professional.count({
+      where: { businessId: business.id },
+    });
+
+    await enforceMaxProfessionals(business.id, professionalCount);
+
     await db.professional.create({
       data: {
         businessId: business.id,
@@ -51,8 +58,11 @@ export async function createProfessional(
       },
     });
   } catch (error) {
-    console.error("Error al crear profesional", error);
-    return { error: "No se pudo crear el profesional. Intentalo de nuevo." };
+    const message =
+      error instanceof Error && error.message.includes("Tu plan actual")
+        ? error.message
+        : "No se pudo crear el profesional. Intentalo de nuevo.";
+    return { error: message };
   }
 
   revalidatePath("/dashboard/professionals");
