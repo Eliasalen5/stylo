@@ -63,6 +63,10 @@ function mockOkEntities() {
 }
 
 beforeEach(() => {
+  // Reloj congelado en un instante ANTERIOR a los fixtures (2026-09-14), para
+  // que sus startsAt sean futuros y pasen la validación "debe ser futuro".
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-09-12T12:00:00.000Z"));
   vi.clearAllMocks();
   mockDefaultHours();
   mockOkEntities();
@@ -179,6 +183,23 @@ describe("createBooking", () => {
       serviceId: "svc-1",
       customerId: "cust-1",
       startsAt: new Date("2026-09-14T13:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({ kind: "invalid" });
+    expect(mockDb.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un turno cuyo horario ya comenzó", async () => {
+    // "Ahora" = 2026-09-14T13:00:00Z = 10:00 local.
+    vi.setSystemTime(new Date("2026-09-14T13:00:00.000Z"));
+
+    const result = await createBooking({
+      businessId: "biz-1",
+      businessTimezone: BA,
+      professionalId: "prof-1",
+      serviceId: "svc-1",
+      customerId: "cust-1",
+      startsAt: new Date("2026-09-14T12:30:00.000Z"), // 09:30 local (pasado)
     });
 
     expect(result).toMatchObject({ kind: "invalid" });

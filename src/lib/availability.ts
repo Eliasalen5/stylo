@@ -184,6 +184,9 @@ export async function getAvailableSlots(
   // 7. Convertir a instantes reales en UTC y filtrar slots ocupados.
   // La comparación se hace sobre instantes (Date), no sobre strings: así los
   // turnos que cruzan la medianoche se detectan correctamente.
+  // La hora del servidor es la fuente de verdad: no se ofrecen slots que ya
+  // comenzaron (comparación sobre instantes UTC, independiente de timezone).
+  const now = Date.now();
   const available = allSlots
     .map((slot) => ({
       startTime: slot.startTime,
@@ -192,6 +195,8 @@ export async function getAvailableSlots(
       endsAtUTC: localToUTC(dateStr, slot.endTime, tz),
     }))
     .filter((slot) => {
+      if (slot.startsAtUTC.getTime() <= now) return false;
+
       return !occupied.some(
         (appt) =>
           slot.startsAtUTC.getTime() < appt.endsAt.getTime() &&
@@ -221,6 +226,11 @@ export async function isBookableSlot(params: {
   endsAt: Date;
 }): Promise<boolean> {
   const { businessId, timezone, professionalId, durationMinutes, startsAt, endsAt } = params;
+
+  // Los turnos deben comenzar estrictamente en el futuro.
+  if (startsAt.getTime() <= Date.now()) {
+    return false;
+  }
 
   // Duración exacta
   if (endsAt.getTime() - startsAt.getTime() !== durationMinutes * 60 * 1000) {

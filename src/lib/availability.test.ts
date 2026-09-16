@@ -34,6 +34,12 @@ function mockDefaultHours() {
 }
 
 beforeEach(() => {
+  // Reloj congelado en un instante ANTERIOR al día de los fixtures (2026-09-14),
+  // para que todos los slots de ese día sean futuros y la regla "debe ser
+  // futuro" no los descarte. Los tests que prueban el comportamiento de slots
+  // pasados mueven el reloj dentro del propio test.
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-09-12T12:00:00.000Z"));
   vi.clearAllMocks();
   mockDefaultHours();
 });
@@ -132,6 +138,21 @@ describe("getAvailableSlots", () => {
     const slots = await getAvailableSlots("biz-1", "prof-1", "svc-1", "2026-09-14");
     expect(slots).toEqual([]);
   });
+
+  it("no ofrece slots que ya comenzaron en el día actual", async () => {
+    // "Ahora" = 2026-09-14T12:59:00Z = 09:59 local (hoy, 4 minutos antes de las 10).
+    vi.setSystemTime(new Date("2026-09-14T12:59:00.000Z"));
+    const slots = await getAvailableSlots("biz-1", "prof-1", "svc-1", "2026-09-14");
+
+    const times = slots.map((s) => s.startTime);
+    expect(times).not.toContain("09:00");
+    expect(times).not.toContain("09:30");
+    expect(times[0]).toBe("10:00");
+    // Todos los slots devueltos comienzan estrictamente en el futuro.
+    for (const slot of slots) {
+      expect(slot.startsAtUTC.getTime()).toBeGreaterThan(Date.now());
+    }
+  });
 });
 
 describe("getEffectiveHours", () => {
@@ -200,6 +221,20 @@ describe("isBookableSlot", () => {
       durationMinutes: 30,
       startsAt: new Date("2026-09-14T13:00:00.000Z"),
       endsAt: new Date("2026-09-14T13:20:00.000Z"),
+    });
+    expect(ok).toBe(false);
+  });
+
+  it("rechaza un turno cuyo horario ya comenzó", async () => {
+    // "Ahora" = 2026-09-14T13:00:00Z = 10:00 local.
+    vi.setSystemTime(new Date("2026-09-14T13:00:00.000Z"));
+    const ok = await isBookableSlot({
+      businessId: "biz-1",
+      timezone: BA,
+      professionalId: "prof-1",
+      durationMinutes: 30,
+      startsAt: new Date("2026-09-14T12:30:00.000Z"), // 09:30 local (pasado)
+      endsAt: new Date("2026-09-14T13:00:00.000Z"),
     });
     expect(ok).toBe(false);
   });
