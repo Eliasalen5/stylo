@@ -37,6 +37,18 @@ describe("buildAppointmentEmail", () => {
     expect(msg.subject).toContain("cancelado");
     expect(msg.html).toContain("fue cancelado");
   });
+
+  it("incluye el link de gestión del turno cuando se pasa manageUrl", () => {
+    const msg = buildAppointmentEmail({
+      ...BASE,
+      kind: "CONFIRMED",
+      manageUrl: "https://app.example.com/la-moda/turno/tok123",
+    });
+    expect(msg.html).toContain("Gestionar o cancelar turno");
+    expect(msg.html).toContain("/la-moda/turno/tok123");
+    expect(msg.text).toContain("Gestión de tu turno");
+    expect(msg.text).toContain("/la-moda/turno/tok123");
+  });
 });
 
 describe("buildBusinessAppointmentEmail", () => {

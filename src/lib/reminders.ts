@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { sendTransactionalEmail, buildAppointmentEmail } from "@/lib/email";
 import { toTimezoneComponents } from "@/lib/datetime";
+import { signAppointmentToken, appointmentManageUrl } from "@/lib/appointment-token";
 
 export const REMINDER_WINDOW_HOURS = 24;
 
@@ -81,7 +82,7 @@ export async function processDueReminders(now = new Date()): Promise<{
       },
     },
     include: {
-      customer: { select: { name: true, email: true } },
+      customer: { select: { id: true, name: true, email: true } },
       appointment: {
         select: {
           startsAt: true,
@@ -106,6 +107,11 @@ export async function processDueReminders(now = new Date()): Promise<{
       const start = toTimezoneComponents(appointment.startsAt, appointment.business.timezone);
       const end = toTimezoneComponents(appointment.endsAt, appointment.business.timezone);
 
+      const token = signAppointmentToken(reminder.appointmentId, reminder.customerId);
+      const manageUrl = token
+        ? appointmentManageUrl(appointment.business.slug, token)
+        : undefined;
+
       const message = buildAppointmentEmail({
         kind: "REMINDER",
         customerName: customer.name,
@@ -115,6 +121,7 @@ export async function processDueReminders(now = new Date()): Promise<{
         startsAtLocal: `${start.dateStr} ${start.timeStr}`,
         endsAtLocal: end.timeStr,
         bookingUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/${appointment.business.slug}`,
+        manageUrl,
       });
 
       ok = await sendTransactionalEmail({

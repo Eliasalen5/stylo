@@ -36,9 +36,11 @@ function makeAppointment(startsAt: Date) {
   };
 }
 
-function makeDueReminder(overrides?: { email?: string | null }) {
+function makeDueReminder(overrides?: { email?: string | null; customerId?: string }) {
   return {
     id: "r1",
+    customerId: overrides?.customerId ?? "c1",
+    appointmentId: "a1",
     customer: {
       name: "Juan",
       email: overrides?.email === undefined ? "juan@example.com" : overrides.email,
@@ -172,6 +174,21 @@ describe("processDueReminders", () => {
       where: { id: "r1" },
       data: { status: "FAILED", failedAt: NOW, error: "missing_email" },
     });
+  });
+
+  it("incluye el link de gestión del turno en el recordatorio", async () => {
+    vi.stubEnv("APPOINTMENT_TOKEN_SECRET", "secret-test");
+    mockDb.reminder.findMany.mockResolvedValue([makeDueReminder()]);
+
+    await processDueReminders(NOW);
+
+    expect(mockEmail.buildAppointmentEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "REMINDER",
+        manageUrl: expect.stringContaining("/pelu/turno/"),
+      })
+    );
+    vi.unstubAllEnvs();
   });
 });
 

@@ -6,6 +6,7 @@ import {
 } from "@/lib/email";
 import type { BusinessAppointmentEventKind } from "@/lib/email";
 import { toTimezoneComponents } from "@/lib/datetime";
+import { signAppointmentToken, appointmentManageUrl } from "@/lib/appointment-token";
 
 /**
  * Envía el email correspondiente a un evento de turno (confirmación,
@@ -26,7 +27,7 @@ export async function notifyAppointmentEvent({
     const appointment = await db.appointment.findFirst({
       where: { id: appointmentId, businessId },
       include: {
-        customer: { select: { name: true, email: true } },
+        customer: { select: { id: true, name: true, email: true } },
         service: { select: { name: true } },
         professional: { select: { name: true } },
         business: { select: { name: true, slug: true, timezone: true } },
@@ -43,6 +44,12 @@ export async function notifyAppointmentEvent({
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const bookingUrl = `${appUrl}/${business.slug}`;
 
+    let manageUrl: string | undefined;
+    if (kind === "CONFIRMED" || kind === "RESCHEDULED") {
+      const token = signAppointmentToken(appointment.id, customer.id);
+      if (token) manageUrl = appointmentManageUrl(business.slug, token);
+    }
+
     const message = buildAppointmentEmail({
       kind,
       customerName: customer.name,
@@ -52,6 +59,7 @@ export async function notifyAppointmentEvent({
       startsAtLocal: `${start.dateStr} ${start.timeStr}`,
       endsAtLocal: end.timeStr,
       bookingUrl,
+      manageUrl,
     });
 
     await sendTransactionalEmail({

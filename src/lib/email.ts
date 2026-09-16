@@ -4,12 +4,31 @@ const apiKey = process.env.RESEND_API_KEY;
 const from = process.env.EMAIL_FROM;
 const resend = apiKey ? new Resend(apiKey) : null;
 
-function layout(title: string, bodyHtml: string, link?: string): string {
-  const linkHtml = link
-    ? `<p style="margin:24px 0 0;text-align:center;">
-         <a href="${link}" style="background:#18181b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;">Ver detalle</a>
+function layout(
+  title: string,
+  bodyHtml: string,
+  primaryLink?: string,
+  manageLink?: string
+): string {
+  const buttons: string[] = [];
+
+  if (primaryLink) {
+    buttons.push(
+      `<p style="margin:24px 0 0;text-align:center;">
+         <a href="${primaryLink}" style="background:#18181b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;">Ver detalle</a>
        </p>`
-    : "";
+    );
+  }
+
+  if (manageLink) {
+    buttons.push(
+      `<p style="margin:8px 0 0;text-align:center;">
+         <a href="${manageLink}" style="color:#52525b;text-decoration:underline;font-size:13px;display:inline-block;">Gestionar o cancelar turno</a>
+       </p>`
+    );
+  }
+
+  const linksHtml = buttons.join("");
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -18,7 +37,7 @@ function layout(title: string, bodyHtml: string, link?: string): string {
     <div style="background:#18181b;color:#fff;padding:20px 24px;font-weight:600;">${title}</div>
     <div style="padding:24px;color:#3f3f46;font-size:15px;line-height:1.6;">
       ${bodyHtml}
-      ${linkHtml}
+      ${linksHtml}
     </div>
   </div>
 </body>
@@ -34,6 +53,7 @@ export function buildAppointmentEmail(opts: {
   startsAtLocal: string;
   endsAtLocal: string;
   bookingUrl: string;
+  manageUrl?: string;
 }): { subject: string; text: string; html: string } {
   const {
     kind,
@@ -44,6 +64,7 @@ export function buildAppointmentEmail(opts: {
     startsAtLocal,
     endsAtLocal,
     bookingUrl,
+    manageUrl,
   } = opts;
 
   const titleMap: Record<string, string> = {
@@ -71,12 +92,14 @@ export function buildAppointmentEmail(opts: {
 
   const text =
     `${title}\n\n${bodyMap[kind].replace(/<[^>]+>/g, "")}` +
-    `\n\n${bookingUrl}\n\nStylo — Reservá tu turno online.`;
+    `\n\n${bookingUrl}` +
+    (manageUrl ? `\n\nGestión de tu turno: ${manageUrl}` : "") +
+    `\n\nStylo — Reservá tu turno online.`;
 
   return {
     subject: kind === "REMINDER" ? `Recordatorio: ${serviceName}` : `${title} - ${businessName}`,
     text,
-    html: layout(title, bodyMap[kind], bookingUrl),
+    html: layout(title, bodyMap[kind], bookingUrl, manageUrl),
   };
 }
 
