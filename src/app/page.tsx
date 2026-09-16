@@ -69,7 +69,7 @@ export default async function Home({ searchParams }: { searchParams: HomeSearchP
                   href="/sign-up"
                   className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                 >
-                  Crear cuenta
+                  Creá tu barbería
                 </Link>
               </>
             )}
