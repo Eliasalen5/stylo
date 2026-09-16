@@ -80,6 +80,64 @@ export function buildAppointmentEmail(opts: {
   };
 }
 
+export type BusinessAppointmentEventKind = "BOOKED" | "RESCHEDULED" | "CANCELLED";
+
+/**
+ * Email de aviso para el negocio (dueño y/o profesional): nueva reserva,
+ * reprogramación o cancelación. No se envía al cliente.
+ */
+export function buildBusinessAppointmentEmail(opts: {
+  kind: BusinessAppointmentEventKind;
+  businessName: string;
+  customerName: string;
+  serviceName: string;
+  professionalName: string;
+  startsAtLocal: string;
+  endsAtLocal: string;
+  price: number;
+}): { subject: string; text: string; html: string } {
+  const {
+    kind,
+    businessName,
+    customerName,
+    serviceName,
+    professionalName,
+    startsAtLocal,
+    endsAtLocal,
+    price,
+  } = opts;
+
+  const titleMap: Record<BusinessAppointmentEventKind, string> = {
+    BOOKED: "Nueva reserva",
+    RESCHEDULED: "Reserva reprogramada",
+    CANCELLED: "Reserva cancelada",
+  };
+  const title = titleMap[kind];
+  const priceFormatted = `$${price.toLocaleString("es-AR")}`;
+
+  const summary =
+    `<p><strong>${serviceName}</strong> con ${professionalName}</p>` +
+    `<p>${startsAtLocal} - ${endsAtLocal} hs</p>` +
+    `<p>Cliente: <strong>${customerName}</strong></p>` +
+    `<p>Precio: ${priceFormatted}</p>`;
+
+  const bodyMap: Record<BusinessAppointmentEventKind, string> = {
+    BOOKED: `<p>Se registró una nueva reserva en <strong>${businessName}</strong>.</p>${summary}`,
+    RESCHEDULED: `<p>Un turno en <strong>${businessName}</strong> fue reprogramado.</p>${summary}`,
+    CANCELLED: `<p>Un turno en <strong>${businessName}</strong> fue cancelado.</p>${summary}`,
+  };
+
+  const text =
+    `${title}\n\n${bodyMap[kind].replace(/<[^>]+>/g, "")}` +
+    `\n\nStylo — Gestión de turnos.`;
+
+  return {
+    subject: `${title} - ${businessName}`,
+    text,
+    html: layout(title, bodyMap[kind]),
+  };
+}
+
 /**
  * Envía un email transaccional.
  *

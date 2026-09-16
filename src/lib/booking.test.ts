@@ -17,7 +17,15 @@ const mockDb = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 
+// Las notificaciones de email son best-effort y no participan de la unidad
+// bajo test (creación segura del turno).
+vi.mock("@/lib/appointment-emails", () => ({
+  notifyAppointmentEvent: vi.fn(),
+  notifyBusinessAppointmentEvent: vi.fn(),
+}));
+
 import { createBooking, BookingConflict } from "@/lib/booking";
+import { notifyBusinessAppointmentEvent } from "@/lib/appointment-emails";
 
 function makeTx(options?: { conflict?: boolean; createdId?: string }) {
   const tx = {
@@ -58,8 +66,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockDefaultHours();
   mockOkEntities();
-  // La notificación de confirmación (email) es best-effort; sin email no hace nada.
-  mockDb.appointment.findFirst.mockResolvedValue({ customer: { email: null } });
 });
 
 describe("createBooking", () => {
@@ -79,6 +85,13 @@ describe("createBooking", () => {
     expect(tx.appointment.create).toHaveBeenCalledTimes(1);
     expect(tx.appointment.create.mock.calls[0][0].data.price).toBe(5000);
     expect(tx.appointment.create.mock.calls[0][0].data.businessId).toBe("biz-1");
+    // Auto-confirmación: un turno con horario disponible nace confirmado.
+    expect(tx.appointment.create.mock.calls[0][0].data.status).toBe("CONFIRMED");
+    expect(notifyBusinessAppointmentEvent).toHaveBeenCalledWith({
+      businessId: "biz-1",
+      appointmentId: "appt-1",
+      kind: "BOOKED",
+    });
   });
 
   it("rechaza la reserva si hay un turno solapado (doble reserva)", async () => {

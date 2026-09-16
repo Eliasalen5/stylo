@@ -7,7 +7,7 @@ import { requireCurrentBusiness } from "@/lib/current-business";
 import { createBooking, runBookingTransaction, BookingConflict } from "@/lib/booking";
 import { isBookableSlot } from "@/lib/availability";
 import { parseStartsAt } from "@/lib/datetime";
-import { notifyAppointmentEvent } from "@/lib/appointment-emails";
+import { notifyAppointmentEvent, notifyBusinessAppointmentEvent } from "@/lib/appointment-emails";
 import { deletePendingRemindersForAppointment } from "@/lib/reminders";
 
 export type AppointmentState = {
@@ -115,6 +115,11 @@ export async function updateAppointmentStatus(
         appointmentId,
         kind: "CANCELLED",
       }),
+      notifyBusinessAppointmentEvent({
+        businessId: business.id,
+        appointmentId,
+        kind: "CANCELLED",
+      }),
     ]);
   } else if (status === "COMPLETED" || status === "NO_SHOW") {
     await deletePendingRemindersForAppointment(appointmentId);
@@ -201,6 +206,12 @@ export async function rescheduleAppointment(
   await deletePendingRemindersForAppointment(appointmentId);
 
   await notifyAppointmentEvent({
+    businessId: business.id,
+    appointmentId,
+    kind: "RESCHEDULED",
+  });
+
+  await notifyBusinessAppointmentEvent({
     businessId: business.id,
     appointmentId,
     kind: "RESCHEDULED",

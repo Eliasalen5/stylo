@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { hasConflict, isBookableSlot } from "@/lib/availability";
-import { notifyAppointmentEvent } from "@/lib/appointment-emails";
+import {
+  notifyAppointmentEvent,
+  notifyBusinessAppointmentEvent,
+} from "@/lib/appointment-emails";
 import { Prisma } from "@/generated/prisma/client";
 
 export type BookingErrorKind =
@@ -152,18 +155,28 @@ export async function createBooking(
           startsAt,
           endsAt,
           price: service.price,
+          // Auto-confirmación: si llegó hasta acá es porque la disponibilidad
+          // ya fue validada en servidor (grilla + conflicto + FOR UPDATE).
+          status: "CONFIRMED",
         },
         select: { id: true },
       });
       id = created.id;
     });
 
-    // Best-effort: el email de confirmación nunca debe hacer fallar la reserva.
-    await notifyAppointmentEvent({
-      businessId,
-      appointmentId: id,
-      kind: "CONFIRMED",
-    });
+    // Best-effort: los emails nunca deben hacer fallar la reserva.
+    await Promise.all([
+      notifyAppointmentEvent({
+        businessId,
+        appointmentId: id,
+        kind: "CONFIRMED",
+      }),
+      notifyBusinessAppointmentEvent({
+        businessId,
+        appointmentId: id,
+        kind: "BOOKED",
+      }),
+    ]);
 
     return { id };
   } catch (error) {

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildAppointmentEmail, sendTransactionalEmail } from "@/lib/email";
+import {
+  buildAppointmentEmail,
+  buildBusinessAppointmentEmail,
+  sendTransactionalEmail,
+} from "@/lib/email";
 
 const BASE = {
   customerName: "Juan",
@@ -32,6 +36,37 @@ describe("buildAppointmentEmail", () => {
     const msg = buildAppointmentEmail({ ...BASE, kind: "CANCELLED" });
     expect(msg.subject).toContain("cancelado");
     expect(msg.html).toContain("fue cancelado");
+  });
+});
+
+describe("buildBusinessAppointmentEmail", () => {
+  const BUSINESS_MESSAGE = {
+    businessName: "Peluquería La Moda",
+    customerName: "Juan",
+    serviceName: "Corte",
+    professionalName: "Ana",
+    startsAtLocal: "2026-09-15 10:00",
+    endsAtLocal: "10:30",
+    price: 5000,
+  };
+
+  it("genera aviso de nueva reserva con cliente y precio formateado", () => {
+    const msg = buildBusinessAppointmentEmail({ ...BUSINESS_MESSAGE, kind: "BOOKED" });
+    expect(msg.subject).toContain("Nueva reserva");
+    expect(msg.html).toContain("Juan");
+    expect(msg.html).toContain("$5.000");
+    expect(msg.text).not.toMatch(/<[^>]+>/);
+  });
+
+  it("genera aviso de cancelación", () => {
+    const msg = buildBusinessAppointmentEmail({ ...BUSINESS_MESSAGE, kind: "CANCELLED" });
+    expect(msg.subject).toContain("cancelada");
+    expect(msg.html).toContain("fue cancelado");
+  });
+
+  it("genera aviso de reprogramación", () => {
+    const msg = buildBusinessAppointmentEmail({ ...BUSINESS_MESSAGE, kind: "RESCHEDULED" });
+    expect(msg.subject).toContain("reprogramada");
   });
 });
 
