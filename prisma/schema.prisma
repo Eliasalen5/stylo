@@ -235,11 +235,14 @@ model Appointment {
   reminders    Reminder[]
 
   @@index([businessId, startsAt])
-  // Defensa en profundidad contra doble reserva: un profesional no puede tener
-  // dos turnos que empiecen exactamente en el mismo instante.
-  @@unique([professionalId, startsAt])
   @@index([customerId, startsAt])
   @@index([status, startsAt])
+  // Defensa en profundidad contra doble reserva: la garantía única es un índice
+  // único PARCIAL sobre (professionalId, startsAt) limitado a turnos
+  // PENDING/CONFIRMED (creado vía SQL en la migración
+  // 20260916000001_allow_rebooking_freed_slots). Así un turno CANCELLED no
+  // bloquea la re-reserva de la misma franja. La serialización concurrente la
+  // aporta runBookingTransaction (FOR UPDATE + hasConflict).
 }
 
 // Plan de suscripción (global, gestionado por la plataforma).
