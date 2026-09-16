@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 type Service = {
   id: string;
@@ -152,6 +153,12 @@ export function PublicBooking({ businessSlug, services, professionals }: Props) 
         <p className="mt-1 text-sm text-green-700 dark:text-green-400">
           {selectedServiceData?.name} el {selectedDate} a las {selectedSlot?.startTime}
         </p>
+        <Link
+          href="/"
+          className="mt-4 inline-block rounded-md bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          Volver al inicio
+        </Link>
       </div>
     );
   }
