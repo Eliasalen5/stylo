@@ -66,6 +66,14 @@ enum SubscriptionInterval {
   YEAR
 }
 
+// Tipo de descuento de una promoción:
+//  - PERCENTAGE: discountValue es un porcentaje (ej: 10 = 10% de descuento).
+//  - FIXED_AMOUNT: discountValue es un monto en pesos (ej: 1500 = $1.500).
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
 model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
@@ -95,6 +103,12 @@ model Business {
   // Zona horaria del negocio (IANA, ej: "America/Argentina/Buenos_Aires")
   timezone    String   @default("UTC")
   logoUrl     String?
+  // Coordenadas geográficas (lat/lng). Se completan geocodificando la
+  // dirección (Google Maps Geocoding) o de forma manual. NULL = sin ubicación.
+  latitude    Float?
+  longitude   Float?
+  // Destaque en el directorio público (controlado por la plataforma)
+  isFeatured  Boolean  @default(false)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -103,6 +117,7 @@ model Business {
   professionals Professional[]
   customers     Customer[]
   services      Service[]
+  promotions    Promotion[]
   businessHours BusinessHours[]
   appointments  Appointment[]
   subscriptions Subscription[]
@@ -165,6 +180,28 @@ model Service {
   business     Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   professionals Professional[] @relation("ProfessionalServices")
   appointments  Appointment[]
+
+  @@index([businessId])
+}
+
+// Promoción informativa del negocio (M3 — sin descuento aplicado aún en la
+// reserva). startsAt/endsAt definen la ventana de validez (fechas en la zona
+// horaria del negocio, guardadas como UTC); NULL = sin límite.
+model Promotion {
+  id            String       @id @default(cuid())
+  businessId    String
+  name          String
+  description   String?
+  discountType  DiscountType
+  discountValue Int
+  // Ventana de validez (opcional). Fuera de este rango la promoción no se muestra.
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId])
 }
