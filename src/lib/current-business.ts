@@ -11,6 +11,9 @@ export type CurrentBusiness = {
   phone: string | null;
   email: string | null;
   description: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type MembershipWithBusiness = Awaited<
@@ -53,6 +56,9 @@ async function resolveMembership(
           phone: true,
           email: true,
           description: true,
+          address: true,
+          latitude: true,
+          longitude: true,
         },
       },
     },
@@ -72,6 +78,17 @@ export async function requireCurrentBusiness(
 ): Promise<CurrentBusiness> {
   const membership = await resolveMembership(searchParams);
   return membership.business;
+}
+
+/**
+ * Requiere pertenencia al negocio (cualquier rol) y devuelve la membresía
+ * (incluye el rol). Se usa cuando una página necesita saber si el usuario
+ * puede editar (OWNER) o solo consultar (PROFESSIONAL).
+ */
+export async function requireCurrentMembership(
+  searchParams?: Record<string, string | string[] | undefined>
+): Promise<MembershipWithBusiness> {
+  return resolveMembership(searchParams);
 }
 
 /**

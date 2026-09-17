@@ -7,6 +7,7 @@ type BusinessCardProps = {
   address: string | null;
   phone: string | null;
   logoUrl: string | null;
+  isFeatured?: boolean;
   servicesCount: number;
   professionalsCount: number;
 };
@@ -18,6 +19,7 @@ export function BusinessCard({
   address,
   phone,
   logoUrl,
+  isFeatured = false,
   servicesCount,
   professionalsCount,
 }: BusinessCardProps) {
@@ -40,9 +42,16 @@ export function BusinessCard({
           </div>
         )}
         <div className="min-w-0">
-          <h2 className="font-semibold text-zinc-900 group-hover:underline dark:text-zinc-100">
-            {name}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-zinc-900 group-hover:underline dark:text-zinc-100">
+              {name}
+            </h2>
+            {isFeatured && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                Destacado
+              </span>
+            )}
+          </div>
           {description && (
             <p className="mt-1 line-clamp-2 text-sm text-zinc-500 dark:text-zinc-400">
               {description}

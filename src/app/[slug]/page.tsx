@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { PublicBooking } from "@/components/booking/public-booking";
+import { PublicPromotions } from "@/components/promotions/public-promotions";
+import { BusinessMap } from "@/components/directory/business-map";
 
 export default async function PublicBookingPage({
   params,
@@ -16,14 +18,17 @@ export default async function PublicBookingPage({
       name: true,
       slug: true,
       description: true,
+      address: true,
       phone: true,
       timezone: true,
+      latitude: true,
+      longitude: true,
     },
   });
 
   if (!business) notFound();
 
-  const [services, professionals] = await Promise.all([
+  const [services, professionals, promotions] = await Promise.all([
     db.service.findMany({
       where: { businessId: business.id, isActive: true },
       orderBy: { createdAt: "asc" },
@@ -35,6 +40,10 @@ export default async function PublicBookingPage({
           select: { id: true, name: true, durationMinutes: true, price: true },
         },
       },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.promotion.findMany({
+      where: { businessId: business.id, isActive: true },
       orderBy: { createdAt: "asc" },
     }),
   ]);
@@ -49,6 +58,11 @@ export default async function PublicBookingPage({
               {business.description}
             </p>
           )}
+          {business.address && (
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              {business.address}
+            </p>
+          )}
           {business.phone && (
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               {business.phone}
@@ -57,11 +71,18 @@ export default async function PublicBookingPage({
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-4 py-6">
+        <PublicPromotions promotions={promotions} timezone={business.timezone} />
         <PublicBooking
           businessSlug={business.slug}
           services={services}
           professionals={professionals}
         />
+        {business.latitude != null && business.longitude != null && (
+          <BusinessMap
+            latitude={business.latitude}
+            longitude={business.longitude}
+          />
+        )}
       </main>
     </div>
   );

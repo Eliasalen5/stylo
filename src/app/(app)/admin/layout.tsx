@@ -21,6 +21,12 @@ export default async function AdminLayout({
           >
             Planes
           </Link>
+          <Link
+            href="/admin/businesses"
+            className="rounded-md px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            Negocios
+          </Link>
         </nav>
       </aside>
       <div className="flex flex-1 flex-col overflow-auto p-4 sm:p-6">{children}</div>

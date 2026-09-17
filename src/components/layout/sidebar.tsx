@@ -7,10 +7,12 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Perfil" },
   { href: "/dashboard/appointments", label: "Turnos" },
   { href: "/dashboard/services", label: "Servicios" },
+  { href: "/dashboard/promotions", label: "Promociones" },
   { href: "/dashboard/professionals", label: "Profesionales" },
   { href: "/dashboard/hours", label: "Horarios" },
   { href: "/dashboard/customers", label: "Clientes" },
   { href: "/dashboard/billing", label: "Suscripción" },
+  { href: "/dashboard/stats", label: "Estadísticas" },
 ];
 
 export function Sidebar({ isPlatformAdmin = false }: { isPlatformAdmin?: boolean }) {

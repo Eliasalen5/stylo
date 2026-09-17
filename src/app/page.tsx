@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
-import { db } from "@/lib/db";
+import { listDirectoryBusinesses } from "@/lib/directory";
 import { BusinessCard } from "@/components/directory/business-card";
 
 export const dynamic = "force-dynamic";
@@ -12,35 +12,7 @@ export default async function Home({ searchParams }: { searchParams: HomeSearchP
   const { q } = await searchParams;
   const query = typeof q === "string" ? q.trim().slice(0, 100) : "";
 
-  const businesses = await db.business.findMany({
-    where: {
-      isActive: true,
-      services: { some: { isActive: true } },
-      ...(query
-        ? {
-            OR: [
-              { name: { contains: query, mode: "insensitive" } },
-              { description: { contains: query, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
-    select: {
-      name: true,
-      slug: true,
-      description: true,
-      address: true,
-      phone: true,
-      logoUrl: true,
-      _count: {
-        select: {
-          services: { where: { isActive: true } },
-          professionals: { where: { isActive: true } },
-        },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
+  const businesses = await listDirectoryBusinesses(query);
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
@@ -120,8 +92,9 @@ export default async function Home({ searchParams }: { searchParams: HomeSearchP
                   address={business.address}
                   phone={business.phone}
                   logoUrl={business.logoUrl}
-                  servicesCount={business._count.services}
-                  professionalsCount={business._count.professionals}
+                  isFeatured={business.isFeatured}
+                  servicesCount={business.servicesCount}
+                  professionalsCount={business.professionalsCount}
                 />
               ))}
             </div>
