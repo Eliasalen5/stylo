@@ -5,6 +5,14 @@ import {
   sendTransactionalEmail,
 } from "@/lib/email";
 
+const mockSend = vi.hoisted(() => vi.fn());
+
+vi.mock("resend", () => ({
+  Resend: class {
+    emails = { send: mockSend };
+  },
+}));
+
 const BASE = {
   customerName: "Juan",
   businessName: "Peluquería La Moda",
@@ -49,6 +57,21 @@ describe("buildAppointmentEmail", () => {
     expect(msg.text).toContain("Gestión de tu turno");
     expect(msg.text).toContain("/la-moda/turno/tok123");
   });
+
+  it("escapa contenido HTML de los datos del cliente", () => {
+    const msg = buildAppointmentEmail({
+      ...BASE,
+      kind: "CONFIRMED",
+      customerName: "<script>alert(1)</script>",
+      businessName: 'Barbería "El Cucho"',
+    });
+
+    expect(msg.html).not.toContain("<script>");
+    expect(msg.html).toContain("&lt;script&gt;");
+    expect(msg.html).toContain("&quot;El Cucho&quot;");
+    expect(msg.text).toContain("<script>alert(1)</script>");
+    expect(msg.text).toContain("Barbería \"El Cucho\"");
+  });
 });
 
 describe("buildBusinessAppointmentEmail", () => {
@@ -85,6 +108,9 @@ describe("buildBusinessAppointmentEmail", () => {
 describe("sendTransactionalEmail", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.resetModules();
+    delete process.env.RESEND_API_KEY;
+    delete process.env.EMAIL_FROM;
   });
 
   it("en desarrollo sin RESEND_API_KEY simula el envío sin fallar", async () => {
@@ -99,5 +125,45 @@ describe("sendTransactionalEmail", () => {
 
     expect(ok).toBe(true);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("[email:simulado]"));
+  });
+
+  it("devuelve false cuando Resend responde con error (no lanza)", async () => {
+    vi.resetModules();
+    process.env.RESEND_API_KEY = "test-key";
+    process.env.EMAIL_FROM = "Stylo <no-reply@stylo.app>";
+    mockSend.mockResolvedValue({
+      data: null,
+      error: { name: "application_error", message: "the from field is invalid" },
+    });
+
+    const { sendTransactionalEmail: send } = await import("@/lib/email");
+    const ok = await send({
+      to: "juan@example.com",
+      subject: "Turno confirmado",
+      text: "texto",
+      html: "<p>html</p>",
+    });
+
+    expect(ok).toBe(false);
+  });
+
+  it("devuelve true cuando Resend responde con data", async () => {
+    vi.resetModules();
+    process.env.RESEND_API_KEY = "test-key";
+    process.env.EMAIL_FROM = "Stylo <no-reply@stylo.app>";
+    mockSend.mockResolvedValue({
+      data: { id: "email-id-1" },
+      error: null,
+    });
+
+    const { sendTransactionalEmail: send } = await import("@/lib/email");
+    const ok = await send({
+      to: "juan@example.com",
+      subject: "Turno confirmado",
+      text: "texto",
+      html: "<p>html</p>",
+    });
+
+    expect(ok).toBe(true);
   });
 });

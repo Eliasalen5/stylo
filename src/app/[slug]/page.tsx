@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { PublicBooking } from "@/components/booking/public-booking";
 import { PublicPromotions } from "@/components/promotions/public-promotions";
@@ -52,6 +53,12 @@ export default async function PublicBookingPage({
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto max-w-2xl">
+          <Link
+            href="/"
+            className="mb-2 inline-block text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+          >
+            ← Volver a la búsqueda
+          </Link>
           <h1 className="text-xl font-semibold">{business.name}</h1>
           {business.description && (
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">

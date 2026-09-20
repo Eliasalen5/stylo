@@ -40,6 +40,10 @@ enum AppointmentStatus {
 
 enum ReminderStatus {
   PENDING
+  // Reclamo atómico previo al envío: evita que dos corridas del cron envíen el
+  // mismo recordatorio. Si una ejecución muere en PROCESSING, la siguiente
+  // corrida lo recupera reenviándolo (al menos una vez).
+  PROCESSING
   SENT
   FAILED
 }

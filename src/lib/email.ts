@@ -4,6 +4,20 @@ const apiKey = process.env.RESEND_API_KEY;
 const from = process.env.EMAIL_FROM;
 const resend = apiKey ? new Resend(apiKey) : null;
 
+/**
+ * Escapa valores para insertarlos en contexto HTML (atributos o contenido).
+ * Previene inyección de HTML/atributos con datos controlados por el usuario
+ * (nombres de clientes/servicios, URLs, etc.).
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function layout(
   title: string,
   bodyHtml: string,
@@ -15,7 +29,7 @@ function layout(
   if (primaryLink) {
     buttons.push(
       `<p style="margin:24px 0 0;text-align:center;">
-         <a href="${primaryLink}" style="background:#18181b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;">Ver detalle</a>
+         <a href="${escapeHtml(primaryLink)}" style="background:#18181b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;">Ver detalle</a>
        </p>`
     );
   }
@@ -23,7 +37,7 @@ function layout(
   if (manageLink) {
     buttons.push(
       `<p style="margin:8px 0 0;text-align:center;">
-         <a href="${manageLink}" style="color:#52525b;text-decoration:underline;font-size:13px;display:inline-block;">Gestionar o cancelar turno</a>
+         <a href="${escapeHtml(manageLink)}" style="color:#52525b;text-decoration:underline;font-size:13px;display:inline-block;">Gestionar o cancelar turno</a>
        </p>`
     );
   }
@@ -75,23 +89,45 @@ export function buildAppointmentEmail(opts: {
   };
   const title = titleMap[kind];
 
+  const safe = {
+    customerName: escapeHtml(customerName),
+    businessName: escapeHtml(businessName),
+    serviceName: escapeHtml(serviceName),
+    professionalName: escapeHtml(professionalName),
+    startsAtLocal: escapeHtml(startsAtLocal),
+    endsAtLocal: escapeHtml(endsAtLocal),
+  };
+
   const summary =
-    `<p><strong>${serviceName}</strong> con ${professionalName}</p>` +
-    `<p>${startsAtLocal} - ${endsAtLocal} hs</p>`;
+    `<p><strong>${safe.serviceName}</strong> con ${safe.professionalName}</p>` +
+    `<p>${safe.startsAtLocal} - ${safe.endsAtLocal} hs</p>`;
 
   const bodyMap: Record<string, string> = {
     CONFIRMED:
-      `<p>Hola ${customerName}, tu turno en <strong>${businessName}</strong> fue confirmado.</p>${summary}`,
+      `<p>Hola ${safe.customerName}, tu turno en <strong>${safe.businessName}</strong> fue confirmado.</p>${summary}`,
     RESCHEDULED:
-      `<p>Hola ${customerName}, tu turno en <strong>${businessName}</strong> fue reprogramado.</p>${summary}`,
+      `<p>Hola ${safe.customerName}, tu turno en <strong>${safe.businessName}</strong> fue reprogramado.</p>${summary}`,
     CANCELLED:
-      `<p>Hola ${customerName}, tu turno en <strong>${businessName}</strong> fue cancelado.</p><p>Si necesitás un nuevo turno, podés reservar cuando quieras.</p>`,
+      `<p>Hola ${safe.customerName}, tu turno en <strong>${safe.businessName}</strong> fue cancelado.</p><p>Si necesitás un nuevo turno, podés reservar cuando quieras.</p>`,
     REMINDER:
-      `<p>Hola ${customerName}, te recordamos tu turno en <strong>${businessName}</strong>.</p>${summary}`,
+      `<p>Hola ${safe.customerName}, te recordamos tu turno en <strong>${safe.businessName}</strong>.</p>${summary}`,
+  };
+
+  const detailText = `${serviceName} con ${professionalName}\n${startsAtLocal} - ${endsAtLocal} hs`;
+
+  const textMap: Record<string, string> = {
+    CONFIRMED:
+      `Hola ${customerName}, tu turno en ${businessName} fue confirmado.\n\n${detailText}`,
+    RESCHEDULED:
+      `Hola ${customerName}, tu turno en ${businessName} fue reprogramado.\n\n${detailText}`,
+    CANCELLED:
+      `Hola ${customerName}, tu turno en ${businessName} fue cancelado.\n\nSi necesitás un nuevo turno, podés reservar cuando quieras.`,
+    REMINDER:
+      `Hola ${customerName}, te recordamos tu turno en ${businessName}.\n\n${detailText}`,
   };
 
   const text =
-    `${title}\n\n${bodyMap[kind].replace(/<[^>]+>/g, "")}` +
+    `${title}\n\n${textMap[kind]}` +
     `\n\n${bookingUrl}` +
     (manageUrl ? `\n\nGestión de tu turno: ${manageUrl}` : "") +
     `\n\nStylo — Reservá tu turno online.`;
@@ -138,20 +174,42 @@ export function buildBusinessAppointmentEmail(opts: {
   const title = titleMap[kind];
   const priceFormatted = `$${price.toLocaleString("es-AR")}`;
 
+  const safe = {
+    businessName: escapeHtml(businessName),
+    customerName: escapeHtml(customerName),
+    serviceName: escapeHtml(serviceName),
+    professionalName: escapeHtml(professionalName),
+    startsAtLocal: escapeHtml(startsAtLocal),
+    endsAtLocal: escapeHtml(endsAtLocal),
+    price: escapeHtml(priceFormatted),
+  };
+
   const summary =
-    `<p><strong>${serviceName}</strong> con ${professionalName}</p>` +
-    `<p>${startsAtLocal} - ${endsAtLocal} hs</p>` +
-    `<p>Cliente: <strong>${customerName}</strong></p>` +
-    `<p>Precio: ${priceFormatted}</p>`;
+    `<p><strong>${safe.serviceName}</strong> con ${safe.professionalName}</p>` +
+    `<p>${safe.startsAtLocal} - ${safe.endsAtLocal} hs</p>` +
+    `<p>Cliente: <strong>${safe.customerName}</strong></p>` +
+    `<p>Precio: ${safe.price}</p>`;
 
   const bodyMap: Record<BusinessAppointmentEventKind, string> = {
-    BOOKED: `<p>Se registró una nueva reserva en <strong>${businessName}</strong>.</p>${summary}`,
-    RESCHEDULED: `<p>Un turno en <strong>${businessName}</strong> fue reprogramado.</p>${summary}`,
-    CANCELLED: `<p>Un turno en <strong>${businessName}</strong> fue cancelado.</p>${summary}`,
+    BOOKED: `<p>Se registró una nueva reserva en <strong>${safe.businessName}</strong>.</p>${summary}`,
+    RESCHEDULED: `<p>Un turno en <strong>${safe.businessName}</strong> fue reprogramado.</p>${summary}`,
+    CANCELLED: `<p>Un turno en <strong>${safe.businessName}</strong> fue cancelado.</p>${summary}`,
+  };
+
+  const summaryText =
+    `${serviceName} con ${professionalName}\n` +
+    `${startsAtLocal} - ${endsAtLocal} hs\n` +
+    `Cliente: ${customerName}\n` +
+    `Precio: ${priceFormatted}`;
+
+  const textMap: Record<BusinessAppointmentEventKind, string> = {
+    BOOKED: `Se registró una nueva reserva en ${businessName}.\n\n${summaryText}`,
+    RESCHEDULED: `Un turno en ${businessName} fue reprogramado.\n\n${summaryText}`,
+    CANCELLED: `Un turno en ${businessName} fue cancelado.\n\n${summaryText}`,
   };
 
   const text =
-    `${title}\n\n${bodyMap[kind].replace(/<[^>]+>/g, "")}` +
+    `${title}\n\n${textMap[kind]}` +
     `\n\nStylo — Gestión de turnos.`;
 
   return {
@@ -186,14 +244,22 @@ export async function sendTransactionalEmail(opts: {
   }
 
   try {
-    await resend.emails.send({
+    // El SDK de Resend no lanza en errores de API/red: resuelve {data, error}.
+    // Sin este chequeo, todo fallo se reportaba como envío exitoso.
+    const { data, error } = await resend.emails.send({
       from,
       to: opts.to,
       subject: opts.subject,
       text: opts.text,
       html: opts.html,
     });
-    return true;
+
+    if (error) {
+      console.error("[email] fallo al enviar", error);
+      return false;
+    }
+
+    return Boolean(data?.id);
   } catch (error) {
     console.error("[email] fallo al enviar", error);
     return false;
